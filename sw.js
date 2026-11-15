@@ -1,5 +1,5 @@
 // ネットワーク優先・失敗時のみキャッシュ（更新が反映されやすく、オフラインでも起動できる）
-const CACHE = 'futari-okaki-v1';
+const CACHE = 'futari-okaki-v2';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
