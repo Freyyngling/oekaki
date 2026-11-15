@@ -1,0 +1,1142 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1f2937">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>ふたりのお絵かき</title>
+<style>
+:root{
+  --bg:#e5e7eb;--panel:#ffffff;--panel2:#f3f4f6;--text:#111827;--sub:#6b7280;--line:#d1d5db;
+  --accent:#2563eb;--accent-t:#ffffff;--danger:#dc2626;--ok:#16a34a;--warn:#d97706;--shadow:0 2px 10px rgba(0,0,0,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1115;--panel:#1b1e26;--panel2:#262a34;--text:#e5e7eb;--sub:#9ca3af;--line:#374151;
+    --accent:#60a5fa;--accent-t:#0b1220;--danger:#f87171;--ok:#4ade80;--warn:#fbbf24;--shadow:0 2px 10px rgba(0,0,0,.6);}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--text);
+  font:14px/1.5 system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif}
+body{position:fixed;inset:0;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;cursor:pointer}
+textarea,input[type=text]{font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;-webkit-user-select:text;user-select:text}
+.hidden,[hidden]{display:none!important}
+
+/* top bar */
+#top{display:flex;align-items:center;gap:8px;padding:calc(6px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left));
+  background:var(--panel);border-bottom:1px solid var(--line);min-height:44px}
+#pill{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;background:var(--panel2);font-size:12px;white-space:nowrap}
+#dot{width:9px;height:9px;border-radius:50%;background:var(--sub)}
+#pill[data-s=ok] #dot{background:var(--ok)}
+#pill[data-s=wait] #dot{background:var(--warn)}
+#pill[data-s=warn] #dot{background:var(--warn)}
+#pill[data-s=bad] #dot{background:var(--danger)}
+#vc{font-size:12px;color:var(--sub);white-space:nowrap}
+#vc b{font-variant-numeric:tabular-nums;letter-spacing:.08em;color:var(--text)}
+#top .sp{flex:1}
+.btn{padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2)}
+.btn.pri{background:var(--accent);color:var(--accent-t);border-color:transparent}
+.btn.danger{color:var(--danger)}
+
+/* stage */
+#stage{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;background:var(--bg);cursor:crosshair}
+#stage.pan{cursor:grab}#stage.panning{cursor:grabbing}
+#paper{position:absolute;left:0;top:0;transform-origin:0 0;background:#fff;box-shadow:0 1px 14px rgba(0,0,0,.28);will-change:transform}
+#paper canvas{position:absolute;left:0;top:0;display:block}
+#ptrcv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.zoombtns{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px}
+.zoombtns button{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);display:grid;place-items:center;padding:0}
+#zl{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--sub);background:var(--panel);padding:1px 8px;border-radius:99px;opacity:.85;pointer-events:none}
+#restoreBar{position:absolute;left:10px;right:10px;top:10px;display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);font-size:13px}
+#restoreBar span{flex:1}
+
+/* bottom toolbar */
+#bottom{background:var(--panel);border-top:1px solid var(--line);padding:4px calc(6px + env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+#row1{display:flex;align-items:stretch;justify-content:space-between;gap:2px}
+#row1 button{flex:1 1 0;max-width:68px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;border:0;border-radius:10px;background:transparent;font-size:10px;line-height:1.2}
+#row1 button.on{background:var(--accent);color:var(--accent-t)}
+#row1 button:disabled{opacity:.35}
+#row1 .vsep{width:1px;background:var(--line);margin:4px 2px}
+#mic.live{background:var(--danger);color:#fff}
+.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#row2{display:flex;align-items:center;gap:8px;padding:4px 4px 2px}
+#sw{flex:1;min-width:0;display:flex;gap:7px;overflow-x:auto;padding:3px 2px;scrollbar-width:none}
+#sw::-webkit-scrollbar{display:none}
+.swatch{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);padding:0}
+.swatch.on{outline:3px solid var(--accent);outline-offset:1px}
+#colorPick{flex:0 0 auto;width:30px;height:30px;padding:0;border:1px solid var(--line);border-radius:50%;background:none;overflow:hidden}
+#size{flex:0 0 110px;width:110px}
+#sizeVal{flex:0 0 26px;text-align:right;font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:560px;max-height:92%;overflow:auto;background:var(--panel);border-radius:16px 16px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:var(--shadow)}
+@media (min-width:640px){.modal{align-items:center}.sheet{border-radius:16px}}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:16px}
+.sheet textarea{width:100%;height:84px;resize:vertical;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);word-break:break-all}
+.step{margin:12px 0 6px;font-weight:600}
+.step b{display:inline-grid;place-items:center;width:20px;height:20px;margin-right:6px;border-radius:50%;background:var(--accent);color:var(--accent-t);font-size:12px}
+.btnrow{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+.big{display:block;width:100%;padding:12px;margin:8px 0;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-size:15px}
+.big.pri{background:var(--accent);color:var(--accent-t);border-color:transparent}
+.note{color:var(--sub);font-size:12px;margin:6px 0}
+.err{color:var(--danger);font-size:13px;margin:6px 0;min-height:1em}
+details.help{margin-top:10px;font-size:12px;color:var(--sub)}
+details.help summary{cursor:pointer;color:var(--text)}
+details.help li{margin:3px 0}
+.menu button.item{display:block;width:100%;text-align:left;padding:12px 8px;border:0;border-bottom:1px solid var(--line);background:none;font-size:15px}
+.menu button.item small{display:block;color:var(--sub);font-size:12px}
+.menu button.item:disabled{opacity:.4}
+.opt{display:flex;gap:14px;margin:8px 0;flex-wrap:wrap}
+.opt label{display:flex;align-items:center;gap:6px}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;max-width:90%;
+  background:#111827;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;text-align:center}
+#toast.show{opacity:.95}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+  <symbol id="i-micoff" viewBox="0 0 24 24"><path d="m2 2 20 20"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M12 19v3"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+</svg>
+
+<div id="top">
+  <div id="pill" data-s="idle"><span id="dot"></span><span id="pillText">未接続</span></div>
+  <div id="vc" hidden>確認コード <b id="vcNum"></b></div>
+  <div class="sp"></div>
+  <button class="btn pri" id="connBtn">接続</button>
+</div>
+
+<div id="stage">
+  <div id="paper"><canvas id="bgc"></canvas><canvas id="inkc"></canvas></div>
+  <canvas id="ptrcv"></canvas>
+  <div id="zl">100%</div>
+  <div class="zoombtns nodraw">
+    <button id="zIn" aria-label="拡大"><svg class="ic"><use href="#i-plus"/></svg></button>
+    <button id="zOut" aria-label="縮小"><svg class="ic"><use href="#i-minus"/></svg></button>
+    <button id="zFit" aria-label="全体表示"><svg class="ic"><use href="#i-fit"/></svg></button>
+  </div>
+  <div id="restoreBar" class="nodraw" hidden>
+    <span id="restoreText">前回の絵が残っています。</span>
+    <button class="btn pri" id="restoreYes">復元</button>
+    <button class="btn" id="restoreNo">破棄</button>
+  </div>
+</div>
+
+<div id="bottom">
+  <div id="row1">
+    <button data-tool="pen" class="tool on"><svg class="ic"><use href="#i-pen"/></svg>ペン</button>
+    <button data-tool="eraser" class="tool"><svg class="ic"><use href="#i-eraser"/></svg>消しゴム</button>
+    <button data-tool="pan" class="tool"><svg class="ic"><use href="#i-hand"/></svg>移動</button>
+    <span class="vsep"></span>
+    <button id="undoBtn"><svg class="ic"><use href="#i-undo"/></svg>戻す</button>
+    <button id="redoBtn"><svg class="ic"><use href="#i-redo"/></svg>進む</button>
+    <span class="vsep"></span>
+    <button id="mic" disabled><svg class="ic"><use id="micUse" href="#i-micoff"/></svg><span id="micText">マイク</span></button>
+    <button id="menuBtn"><svg class="ic"><use href="#i-menu"/></svg>メニュー</button>
+  </div>
+  <div id="row2">
+    <div id="sw"></div>
+    <input type="color" id="colorPick" aria-label="色を選ぶ" value="#1a1a1a">
+    <input type="range" id="size" min="1" max="60" value="4" aria-label="太さ">
+    <span id="sizeVal">4</span>
+  </div>
+</div>
+
+<!-- connection sheet -->
+<div id="connModal" class="modal hidden">
+  <div class="sheet">
+    <div class="sheet-head"><b>接続</b><button class="btn" data-close="connModal">閉じる</button></div>
+
+    <div id="vChoose">
+      <p class="note">2人だけで直接つなぎます。サーバーも登録も使いません。つなぐには、招待リンクと返答コードを1往復だけ交換します。</p>
+      <button class="big pri" id="btnHost">部屋を作る（招待する側）</button>
+      <button class="big" id="btnGuest">招待を受け取った（参加する側）</button>
+    </div>
+
+    <div id="vHost" hidden>
+      <div class="step"><b>1</b>この招待リンクを、つなぎたい相手だけに送ります</div>
+      <textarea id="inviteOut" readonly></textarea>
+      <div class="btnrow"><button class="btn" id="copyInvite">リンクをコピー</button><button class="btn" id="shareInvite">共有…</button></div>
+      <div class="step"><b>2</b>相手から届いた返答コードを貼り付けます</div>
+      <textarea id="answerIn" placeholder="返答コード（FD1.…）"></textarea>
+      <button class="big pri" id="btnFinish">接続する</button>
+    </div>
+
+    <div id="vGuest" hidden>
+      <div class="step"><b>1</b>届いた招待リンク（またはコード）を貼り付けます</div>
+      <textarea id="inviteIn" placeholder="招待リンクまたはコード（FD1.…）"></textarea>
+      <button class="big pri" id="btnMakeAnswer">返答コードを作る</button>
+      <div id="answerBox" hidden>
+        <div class="step"><b>2</b>この返答コードを、招待した人に送ります</div>
+        <textarea id="answerOut" readonly></textarea>
+        <div class="btnrow"><button class="btn" id="copyAnswer">コードをコピー</button><button class="btn" id="shareAnswer">共有…</button></div>
+        <p class="note">相手が貼り付けると自動でつながります。この画面は開いたままにしてください。</p>
+      </div>
+    </div>
+
+    <div id="vDone" hidden>
+      <p>接続中です。</p>
+      <p class="note">両方の画面の「確認コード」が同じ数字なら、想定した相手とつながっています。違う場合は切断してください。</p>
+      <button class="big danger" id="btnDisconnect">切断する</button>
+    </div>
+
+    <p id="connMsg" class="note"></p>
+    <p id="connErr" class="err"></p>
+    <div class="btnrow" id="resetRow" hidden><button class="btn" id="btnReset">最初からやり直す</button></div>
+
+    <details class="help">
+      <summary>注意とヒント</summary>
+      <ul>
+        <li>招待リンクは、つなぎたい相手の個別メッセージにだけ送ってください。公開の場所に貼ると、先に開いた別の人がつながる可能性があります。</li>
+        <li>接続後、両方の画面に同じ確認コードが出ます。電話や別の連絡手段で一致を確かめると安全です。</li>
+        <li>データは端末同士の直接通信で、GitHub や他のサーバーは絵や音声を通しません。ただし、相手のアドレスを知るために公開のSTUNサーバー（Google）に問い合わせます。</li>
+        <li>回線の組み合わせ（特にモバイル回線同士）では、直接つながらない場合があります。その場合は、片方をWi-Fiにして試してください。</li>
+        <li>コードを送る間に別アプリへ切り替えると、ブラウザがこの画面を閉じて、作ったコードが無効になることがあります。その場合は最初からやり直してください。</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<!-- menu sheet -->
+<div id="menuModal" class="modal hidden">
+  <div class="sheet menu">
+    <div class="sheet-head"><b>メニュー</b><button class="btn" data-close="menuModal">閉じる</button></div>
+    <button class="item" id="miImage">画像を読み込む<small>写真・図面などを背景にして、二人で描き込めます（相手にも表示されます）</small></button>
+    <button class="item" id="miNoBg">背景画像を外す</button>
+    <button class="item" id="miExport">画像として書き出す<small>PNG / JPEG / 線だけの透過PNG</small></button>
+    <button class="item" id="miSave">プロジェクトを保存（.json）<small>後で読み込んで、線ごと描き足し・消去ができます</small></button>
+    <button class="item" id="miLoad">プロジェクトを読み込む（.json）</button>
+    <button class="item" id="miClear">線をすべて消す<small>背景画像は残ります。相手の画面でも消えます</small></button>
+    <button class="item" id="miOrient">紙の向きを切り替える<small>何も描いておらず、背景画像もないときだけ使えます</small></button>
+    <button class="item" id="miTouch">指の動作：指で描く<small>タップで切り替え。ペンを使うと自動で「指は移動専用」になります</small></button>
+    <button class="item" id="miConn">接続の画面を開く</button>
+  </div>
+</div>
+
+<!-- export sheet -->
+<div id="exportModal" class="modal hidden">
+  <div class="sheet">
+    <div class="sheet-head"><b>画像として書き出す</b><button class="btn" data-close="exportModal">閉じる</button></div>
+    <div class="opt">
+      <label><input type="radio" name="fmt" value="png" checked>PNG</label>
+      <label><input type="radio" name="fmt" value="jpeg">JPEG</label>
+      <label><input type="radio" name="fmt" value="line">線だけ（透過PNG）</label>
+    </div>
+    <div class="btnrow">
+      <button class="btn pri" id="exDownload">保存（ダウンロード）</button>
+      <button class="btn" id="exShare" hidden>共有…</button>
+    </div>
+    <p class="note">この端末にだけ保存されます。相手の端末には送られません。</p>
+  </div>
+</div>
+
+<input type="file" id="fileImg" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+<input type="file" id="fileJson" accept=".json,application/json" hidden>
+<audio id="remoteAudio" autoplay playsinline></audio>
+<div id="toast"></div>
+
+<script>
+'use strict';
+(() => {
+/* ============ utils ============ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const SS = 2;            // 内部解像度の倍率
+const LONG = 1600;       // 紙の長辺（論理px）
+const MAXPAPER = 1800;
+const CH = 15000;        // データチャネル1通あたりの最大文字数
+const IDENT = ['#1971c2', '#e8590c'];   // 0=招待した側 1=参加した側
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const num = (v, a, b, d) => { v = +v; return Number.isFinite(v) ? clamp(v, a, b) : d; };
+const r1 = v => Math.round(v * 10) / 10;
+const rnd = () => Math.random().toString(36).slice(2, 9);
+let idCounter = 0;
+const newId = () => rnd() + (++idCounter).toString(36);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+let toastTimer = 0;
+function toast(msg, ms = 2800) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ============ state ============ */
+const S = {
+  role: null,
+  paper: { w: 1600, h: 1200 },
+  bg: null, bgImg: null, bgToken: 0,
+  strokes: [], byId: new Map(), removed: new Set(), lam: 0,
+  tool: 'pen', color: '#1a1a1a', colorTouched: false, sizes: { pen: 4, eraser: 24 },
+  touchMode: 'draw', penSeen: false,
+  undo: [], redo: [],
+};
+const stage = $('#stage'), paperEl = $('#paper'), bgc = $('#bgc'), inkc = $('#inkc'), ptrcv = $('#ptrcv');
+const bgx = bgc.getContext('2d'), ix = inkc.getContext('2d'), px = ptrcv.getContext('2d');
+
+/* ============ 紙・描画 ============ */
+function setPaper(w, h, redraw = true) {
+  w = Math.round(clamp(w, 200, MAXPAPER)); h = Math.round(clamp(h, 200, MAXPAPER));
+  S.paper = { w, h };
+  paperEl.style.width = w + 'px'; paperEl.style.height = h + 'px';
+  for (const c of [bgc, inkc]) { c.width = w * SS; c.height = h * SS; c.style.width = w + 'px'; c.style.height = h + 'px'; }
+  bgx.setTransform(SS, 0, 0, SS, 0, 0); ix.setTransform(SS, 0, 0, SS, 0, 0);
+  if (redraw) { redrawBg(); redrawAll(); }
+}
+function redrawBg() {
+  bgx.save(); bgx.setTransform(1, 0, 0, 1, 0, 0); bgx.clearRect(0, 0, bgc.width, bgc.height); bgx.restore();
+  const im = S.bgImg; if (!im) return;
+  const { w, h } = S.paper;
+  const sc = Math.min(w / im.naturalWidth, h / im.naturalHeight);
+  const dw = im.naturalWidth * sc, dh = im.naturalHeight * sc;
+  bgx.drawImage(im, (w - dw) / 2, (h - dh) / 2, dw, dh);
+}
+const stride = st => (st.pr ? 3 : 2);
+const nPts = st => st.p.length / stride(st);
+const X = (st, i) => st.p[i * stride(st)];
+const Y = (st, i) => st.p[i * stride(st) + 1];
+const MX = (st, i) => (X(st, i) + X(st, i + 1)) / 2;
+const MY = (st, i) => (Y(st, i) + Y(st, i + 1)) / 2;
+function wAt(st, i) {
+  if (!st.pr) return st.w;
+  return Math.max(0.6, st.w * (0.2 + 1.6 * st.p[i * 3 + 2] / 100));
+}
+function resetR(st) { st._h = 0; st._k = 0; st._t = 0; }
+function drawStroke(c, st, final) {
+  const n = nPts(st); if (!n) return;
+  const er = st.k === 'e';
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.globalCompositeOperation = er ? 'destination-out' : 'source-over';
+  c.strokeStyle = c.fillStyle = er ? '#000' : st.c;
+  if (n === 1) {
+    if (final && !st._t) { c.beginPath(); c.arc(X(st, 0), Y(st, 0), wAt(st, 0) / 2, 0, Math.PI * 2); c.fill(); st._t = 1; }
+    c.globalCompositeOperation = 'source-over'; return;
+  }
+  if (!st._h) {
+    c.lineWidth = wAt(st, 0); c.beginPath(); c.moveTo(X(st, 0), Y(st, 0)); c.lineTo(MX(st, 0), MY(st, 0)); c.stroke(); st._h = 1;
+  }
+  let k = st._k || 1;
+  for (; k <= n - 2; k++) {
+    c.lineWidth = wAt(st, k); c.beginPath(); c.moveTo(MX(st, k - 1), MY(st, k - 1));
+    c.quadraticCurveTo(X(st, k), Y(st, k), MX(st, k), MY(st, k)); c.stroke();
+  }
+  st._k = k;
+  if (final && !st._t) {
+    c.lineWidth = wAt(st, n - 1); c.beginPath(); c.moveTo(MX(st, n - 2), MY(st, n - 2)); c.lineTo(X(st, n - 1), Y(st, n - 1)); c.stroke(); st._t = 1;
+  }
+  c.globalCompositeOperation = 'source-over';
+}
+function redrawAll() {
+  ix.save(); ix.setTransform(1, 0, 0, 1, 0, 0); ix.clearRect(0, 0, inkc.width, inkc.height); ix.restore();
+  for (const st of S.strokes) { resetR(st); st._dirty = false; drawStroke(ix, st, st.done); }
+}
+const less = (a, b) => a.q !== b.q ? a.q < b.q : a.o !== b.o ? a.o < b.o : a.id < b.id;
+function insertStroke(st) {
+  let i = S.strokes.length;
+  while (i > 0 && less(st, S.strokes[i - 1])) i--;
+  S.strokes.splice(i, 0, st); S.byId.set(st.id, st);
+  return i;
+}
+function addStroke(st, draw = true) {
+  resetR(st);
+  const i = insertStroke(st);
+  st._dirty = i < S.strokes.length - 1;
+  if (draw && !st._dirty) drawStroke(ix, st, st.done);
+  else if (draw && st._dirty && st.done) redrawAll();
+}
+function dropStroke(id, tomb = true) {
+  const st = S.byId.get(id);
+  if (tomb) S.removed.add(id);
+  if (!st) return false;
+  const i = S.strokes.indexOf(st); if (i >= 0) S.strokes.splice(i, 1);
+  S.byId.delete(id);
+  return true;
+}
+function cleanPts(a, s) {
+  if (!Array.isArray(a)) return [];
+  const out = [];
+  for (let i = 0; i < a.length && i < 400000; i++) { const v = +a[i]; out.push(Number.isFinite(v) ? v : 0); }
+  out.length -= out.length % s; return out;
+}
+function cleanStroke(r) {
+  if (!r || typeof r !== 'object') return null;
+  const id = String(r.id || '').slice(0, 40); if (!id) return null;
+  const pr = r.pr ? 1 : 0;
+  return {
+    id, o: r.o === 1 ? 1 : 0, q: Math.floor(num(r.q, 0, 1e9, 0)), k: r.k === 'e' ? 'e' : 'p',
+    c: /^#[0-9a-fA-F]{6}$/.test(r.c) ? r.c : '#000000', w: num(r.w, 0.5, 200, 4), pr,
+    p: cleanPts(r.p, pr ? 3 : 2), done: !!r.done,
+  };
+}
+const exportStroke = st => ({ id: st.id, o: st.o, q: st.q, k: st.k, c: st.c, w: st.w, pr: st.pr, p: st.p.slice(), done: st.done ? 1 : 0 });
+
+/* ============ 表示（パン・ズーム） ============ */
+const view = { tx: 0, ty: 0, s: 1 }; let userMoved = false;
+const MINS = 0.1, MAXS = 8;
+function applyView() {
+  const w = stage.clientWidth, h = stage.clientHeight, m = 80;
+  view.tx = clamp(view.tx, m - S.paper.w * view.s, w - m);
+  view.ty = clamp(view.ty, m - S.paper.h * view.s, h - m);
+  paperEl.style.transform = `translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
+  $('#zl').textContent = Math.round(view.s * 100) + '%';
+  drawPtr();
+}
+function fitView() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  view.s = clamp(Math.min((w - 24) / S.paper.w, (h - 24) / S.paper.h), 0.05, MAXS);
+  view.tx = (w - S.paper.w * view.s) / 2; view.ty = (h - S.paper.h * view.s) / 2;
+  userMoved = false; applyView();
+}
+function zoomAt(cx, cy, f) {
+  const ns = clamp(view.s * f, MINS, MAXS), k = ns / view.s;
+  view.tx = cx - (cx - view.tx) * k; view.ty = cy - (cy - view.ty) * k; view.s = ns; userMoved = true; applyView();
+}
+function toPaper(cx, cy) {
+  const r = stage.getBoundingClientRect();
+  return [(cx - r.left - view.tx) / view.s, (cy - r.top - view.ty) / view.s];
+}
+let dpr = 1;
+function resizeStage() {
+  dpr = window.devicePixelRatio || 1;
+  ptrcv.width = Math.round(stage.clientWidth * dpr); ptrcv.height = Math.round(stage.clientHeight * dpr);
+  if (!userMoved) fitView(); else applyView();
+}
+new ResizeObserver(resizeStage).observe(stage);
+
+/* ============ 相手のポインター ============ */
+const remote = { ptr: null, raf: 0 };
+function drawPtr() {
+  px.setTransform(dpr, 0, 0, dpr, 0, 0); px.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
+  const p = remote.ptr; if (!p || !p.vis) return;
+  const age = performance.now() - p.t; if (age > 3500) return;
+  const x = view.tx + p.x * view.s, y = view.ty + p.y * view.s;
+  const r = Math.max(5, (p.w || 4) * view.s / 2);
+  const col = IDENT[S.role === 0 ? 1 : 0];
+  px.globalAlpha = age < 2500 ? 1 : (3500 - age) / 1000;
+  px.lineWidth = 2; px.strokeStyle = col; px.beginPath(); px.arc(x, y, r, 0, Math.PI * 2); px.stroke();
+  if (p.d) { px.fillStyle = col; px.globalAlpha *= 0.28; px.fill(); px.globalAlpha = 1; }
+  px.globalAlpha = 1; px.fillStyle = col; px.font = '11px system-ui,sans-serif'; px.fillText('相手', x + r + 3, y - r - 2);
+}
+function schedPtr() {
+  if (remote.raf) return;
+  const tick = () => {
+    drawPtr();
+    if (remote.ptr && remote.ptr.vis && performance.now() - remote.ptr.t < 3500) remote.raf = requestAnimationFrame(tick); else remote.raf = 0;
+  };
+  remote.raf = requestAnimationFrame(tick);
+}
+let lastPtrSent = 0;
+function sendMyPtr(x, y, d, force = false) {
+  const now = performance.now();
+  if (!force && now - lastPtrSent < 33) return;
+  lastPtrSent = now;
+  sendPtr({ t: 'ptr', x: x === null ? null : r1(x), y: y === null ? null : r1(y), d: d ? 1 : 0, w: S.sizes[S.tool === 'eraser' ? 'eraser' : 'pen'] });
+}
+
+/* ============ ツール・UI ============ */
+const SWATCH = ['#1a1a1a', '#e03131', '#f08c00', '#2f9e44', '#1971c2', '#7048e8', '#c2255c', '#868e96', '#ffffff'];
+function buildSwatches() {
+  const box = $('#sw');
+  for (const c of SWATCH) {
+    const b = document.createElement('button'); b.className = 'swatch'; b.style.background = c; b.dataset.c = c; b.setAttribute('aria-label', '色 ' + c);
+    b.addEventListener('click', () => setColor(c, true)); box.appendChild(b);
+  }
+}
+function setColor(c, touched) {
+  S.color = c; if (touched) S.colorTouched = true;
+  if (S.tool === 'eraser' || S.tool === 'pan') setTool('pen');
+  $$('.swatch').forEach(b => b.classList.toggle('on', b.dataset.c.toLowerCase() === c.toLowerCase()));
+  $('#colorPick').value = c;
+}
+function setTool(t) {
+  S.tool = t;
+  $$('.tool').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  stage.classList.toggle('pan', t === 'pan');
+  const v = S.sizes[t === 'eraser' ? 'eraser' : 'pen'];
+  $('#size').value = v; $('#sizeVal').textContent = v; $('#size').disabled = t === 'pan';
+}
+$$('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$('#size').addEventListener('input', e => {
+  const v = +e.target.value; S.sizes[S.tool === 'eraser' ? 'eraser' : 'pen'] = v; $('#sizeVal').textContent = v;
+});
+$('#colorPick').addEventListener('input', e => setColor(e.target.value, true));
+$('#zIn').addEventListener('click', () => zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 1.25));
+$('#zOut').addEventListener('click', () => zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 0.8));
+$('#zFit').addEventListener('click', fitView);
+
+/* ============ 入力（Pointer Events） ============ */
+const ptrs = new Map(); let gest = null; let spaceDown = false; let flushTimer = 0;
+function startStroke(e) {
+  const tool = S.tool === 'eraser' ? 'eraser' : 'pen';
+  const st = {
+    id: newId(), o: S.role === 1 ? 1 : 0, q: ++S.lam, k: tool === 'eraser' ? 'e' : 'p', c: S.color,
+    w: S.sizes[tool], pr: e.pointerType === 'pen' ? 1 : 0, p: [], done: false, _sent: 0, _local: true,
+  };
+  pushPt(st, e); addStroke(st);
+  S.undo.push(st.id); S.redo.length = 0; updateUndoUI();
+  gest = { type: 'draw', pid: e.pointerId, st, t0: performance.now() };
+  sendMain({ t: 's', s: exportStroke(st) }); st._sent = nPts(st);
+  const [x, y] = toPaper(e.clientX, e.clientY); sendMyPtr(x, y, true, true);
+}
+function pushPt(st, e) {
+  const [x, y] = toPaper(e.clientX, e.clientY);
+  const n = nPts(st);
+  if (n > 0) { const dx = x - X(st, n - 1), dy = y - Y(st, n - 1); if (dx * dx + dy * dy < 0.16) return false; }
+  st.p.push(r1(x), r1(y));
+  if (st.pr) st.p.push(Math.round(clamp(e.pressure || 0.5, 0.01, 1) * 100));
+  return true;
+}
+function flushStroke(st) {
+  const n = nPts(st);
+  if (n > st._sent) { sendMain({ t: 'p', id: st.id, p: st.p.slice(st._sent * stride(st)) }); st._sent = n; }
+}
+function extendStroke(e) {
+  const st = gest.st; let any = false;
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  for (const ev of (evs.length ? evs : [e])) any = pushPt(st, ev) || any;
+  if (any) {
+    if (!st._dirty) drawStroke(ix, st, false);
+    if (!flushTimer) flushTimer = setTimeout(() => { flushTimer = 0; if (gest && gest.st) flushStroke(gest.st); }, 25);
+  }
+  const [x, y] = toPaper(e.clientX, e.clientY); sendMyPtr(x, y, true);
+}
+function endStroke() {
+  const st = gest.st; st.done = true;
+  if (st._dirty) redrawAll(); else drawStroke(ix, st, true);
+  flushStroke(st); sendMain({ t: 'e', id: st.id }); sendMyPtr(null, null, false, true);
+  scheduleAutosave();
+}
+function cancelStroke() {
+  const st = gest.st;
+  dropStroke(st.id); const i = S.undo.indexOf(st.id); if (i >= 0) S.undo.splice(i, 1);
+  sendMain({ t: 'u', id: st.id }); redrawAll(); updateUndoUI();
+}
+function startPinch() {
+  const ts = [...ptrs.entries()].filter(([, p]) => p.type === 'touch').slice(0, 2);
+  const a = ts[0][1], b = ts[1][1];
+  gest = { type: 'pinch', ids: ts.map(t => t[0]), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 };
+}
+function updatePinch() {
+  const a = ptrs.get(gest.ids[0]), b = ptrs.get(gest.ids[1]); if (!a || !b) return;
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+  const r = stage.getBoundingClientRect();
+  const ns = clamp(view.s * d / gest.d, MINS, MAXS);
+  const cx = (gest.mx - r.left - view.tx) / view.s, cy = (gest.my - r.top - view.ty) / view.s;
+  view.s = ns; view.tx = (mx - r.left) - cx * ns; view.ty = (my - r.top) - cy * ns;
+  gest.mx = mx; gest.my = my; gest.d = d; userMoved = true; applyView();
+}
+stage.addEventListener('pointerdown', e => {
+  if (e.target.closest('.nodraw')) return;
+  e.preventDefault();
+  try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+  if (e.pointerType === 'pen' && !S.penSeen) {
+    S.penSeen = true;
+    if (S.touchMode === 'draw') { S.touchMode = 'pan'; updateTouchLabel(); toast('ペンを検出したので、指は「移動専用」にしました（メニューで戻せます）', 4000); }
+  }
+  const touches = [...ptrs.values()].filter(p => p.type === 'touch');
+  if (e.pointerType === 'touch' && touches.length >= 2) {
+    if (gest && gest.type === 'draw') { if (performance.now() - gest.t0 < 350) cancelStroke(); else endStroke(); }
+    startPinch(); return;
+  }
+  if (gest) return;
+  if (e.pointerType === 'mouse' && e.button > 2) return;
+  const wantPan = S.tool === 'pan' || (e.pointerType === 'mouse' && (e.button === 1 || e.button === 2 || spaceDown)) ||
+    (e.pointerType === 'touch' && S.touchMode === 'pan');
+  if (wantPan) { gest = { type: 'pan', pid: e.pointerId, x: e.clientX, y: e.clientY }; stage.classList.add('panning'); return; }
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  startStroke(e);
+});
+stage.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if (p) { p.x = e.clientX; p.y = e.clientY; }
+  if (!gest) {
+    if (e.pointerType !== 'touch') { const [x, y] = toPaper(e.clientX, e.clientY); sendMyPtr(x, y, false); }
+    return;
+  }
+  if (gest.type === 'draw' && e.pointerId === gest.pid) extendStroke(e);
+  else if (gest.type === 'pan' && e.pointerId === gest.pid) {
+    view.tx += e.clientX - gest.x; view.ty += e.clientY - gest.y; gest.x = e.clientX; gest.y = e.clientY; userMoved = true; applyView();
+  } else if (gest.type === 'pinch' && gest.ids.includes(e.pointerId)) updatePinch();
+});
+function endPtr(e) {
+  ptrs.delete(e.pointerId);
+  if (gest) {
+    if (gest.type === 'draw' && e.pointerId === gest.pid) { endStroke(); gest = null; }
+    else if (gest.type === 'pan' && e.pointerId === gest.pid) gest = null;
+    else if (gest.type === 'pinch' && gest.ids.includes(e.pointerId)) gest = { type: 'none' };
+  }
+  if (ptrs.size === 0) gest = null;
+  if (!gest) stage.classList.remove('panning');
+}
+stage.addEventListener('pointerup', endPtr);
+stage.addEventListener('pointercancel', endPtr);
+stage.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch' && !gest) sendMyPtr(null, null, false, true); });
+stage.addEventListener('contextmenu', e => e.preventDefault());
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = stage.getBoundingClientRect(), cx = e.clientX - r.left, cy = e.clientY - r.top;
+  if (e.ctrlKey) zoomAt(cx, cy, Math.exp(-e.deltaY * 0.01));
+  else if (e.deltaMode !== 0 || Math.abs(e.deltaY) >= 40) zoomAt(cx, cy, Math.exp(-e.deltaY * 0.0015));
+  else { view.tx -= e.deltaX; view.ty -= e.deltaY; userMoved = true; applyView(); }
+}, { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+stage.addEventListener('dragover', e => e.preventDefault());
+stage.addEventListener('drop', e => {
+  e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f);
+});
+document.addEventListener('keydown', e => {
+  if (/^(INPUT|TEXTAREA)$/.test(document.activeElement && document.activeElement.tagName) && document.activeElement.type !== 'range') return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); }
+  else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); doRedo(); }
+  else if (e.key === ' ') { spaceDown = true; stage.classList.add('pan'); e.preventDefault(); }
+  else if (!mod) {
+    const k = e.key.toLowerCase();
+    if (k === 'b') setTool('pen'); else if (k === 'e') setTool('eraser'); else if (k === 'h') setTool('pan');
+    else if (e.key === '[' || e.key === ']') {
+      const t = S.tool === 'eraser' ? 'eraser' : 'pen'; const v = clamp(S.sizes[t] + (e.key === ']' ? 2 : -2), 1, 60);
+      S.sizes[t] = v; $('#size').value = v; $('#sizeVal').textContent = v;
+    }
+  }
+});
+document.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; stage.classList.toggle('pan', S.tool === 'pan'); } });
+
+/* ============ 取り消し / やり直し ============ */
+function updateUndoUI() {
+  $('#undoBtn').disabled = !S.undo.some(id => S.byId.has(id));
+  $('#redoBtn').disabled = S.redo.length === 0;
+}
+function doUndo() {
+  if (gest && gest.type === 'draw') return;
+  while (S.undo.length) {
+    const id = S.undo.pop(); const st = S.byId.get(id); if (!st) continue;
+    dropStroke(id); S.redo.push(st); redrawAll(); sendMain({ t: 'u', id }); scheduleAutosave(); updateUndoUI(); return;
+  }
+  updateUndoUI();
+}
+function doRedo() {
+  if (gest && gest.type === 'draw') return;
+  const old = S.redo.pop(); if (!old) return;
+  const st = { ...exportStroke(old), id: newId(), q: ++S.lam, o: S.role === 1 ? 1 : 0, done: true, _local: true };
+  addStroke(st); if (st._dirty) redrawAll();
+  S.undo.push(st.id); sendMain({ t: 'S', s: exportStroke(st) }); scheduleAutosave(); updateUndoUI();
+}
+$('#undoBtn').addEventListener('click', doUndo);
+$('#redoBtn').addEventListener('click', doRedo);
+
+/* ============ 通信 ============ */
+const ICE = (() => {
+  const q = new URLSearchParams(location.search);
+  if (q.get('stun') === 'off') return [];
+  return [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+})();
+let pc = null, dcMain = null, dcPtr = null, pcRole = null, audioTx = null, micTrack = null, connected = false, disTimer = 0, wakeLock = null;
+let sendQ = Promise.resolve(); const parts = new Map();
+
+function setStatus(s, text) { $('#pill').dataset.s = s; $('#pillText').textContent = text; }
+function closePeer() {
+  connected = false; clearTimeout(disTimer);
+  const p = pc; pc = null;
+  try { if (dcMain) dcMain.close(); } catch (_) {} try { if (dcPtr) dcPtr.close(); } catch (_) {} try { if (p) p.close(); } catch (_) {}
+  dcMain = dcPtr = audioTx = null; stopMic(); parts.clear();
+  remote.ptr = null; drawPtr(); $('#vc').hidden = true; $('#mic').disabled = true;
+  if (wakeLock) { try { wakeLock.release(); } catch (_) {} wakeLock = null; }
+  sendQ = Promise.resolve();
+}
+function newPeer(role) {
+  closePeer(); pcRole = role;
+  const me = pc = new RTCPeerConnection({ iceServers: ICE });
+  me.onconnectionstatechange = () => {
+    if (pc !== me) return;
+    const st = me.connectionState;
+    if (st === 'connected') { clearTimeout(disTimer); if (connected) { setStatus('ok', '接続中'); sendSync(); toast('接続が回復しました'); } }
+    else if (st === 'disconnected') {
+      if (connected) { setStatus('warn', '不安定…'); clearTimeout(disTimer); disTimer = setTimeout(() => { if (pc === me && me.connectionState !== 'connected') onLost(); }, 10000); }
+    } else if (st === 'failed') onLost();
+    else if (st === 'closed' && connected) onLost();
+  };
+  me.ontrack = ev => {
+    const a = $('#remoteAudio'); a.srcObject = new MediaStream([ev.track]);
+    a.play().catch(() => {});
+  };
+  if (role === 1) me.ondatachannel = ev => {
+    if (pc !== me) return;
+    if (ev.channel.label === 'draw') { dcMain = ev.channel; wireMain(dcMain); }
+    else if (ev.channel.label === 'ptr') { dcPtr = ev.channel; wirePtr(dcPtr); }
+  };
+  return me;
+}
+function wireMain(dc) {
+  dc.bufferedAmountLowThreshold = 262144;
+  dc.onmessage = ev => onMain(ev.data);
+  dc.onclose = () => { if (dcMain === dc && connected) onLost(); };
+  if (dc.readyState === 'open') onOpen(); else dc.onopen = onOpen;
+}
+function wirePtr(dc) { dc.onmessage = ev => { try { onPtr(JSON.parse(ev.data)); } catch (_) {} }; }
+async function onOpen() {
+  if (connected) return;
+  connected = true; clearTimeout(disTimer);
+  S.role = pcRole;
+  if (!S.colorTouched) setColor(IDENT[S.role], false);
+  setStatus('ok', '接続中'); $('#mic').disabled = false;
+  closeModal('connModal'); showConnView('done');
+  const code = await verifyCode(); if (code) { $('#vcNum').textContent = code; $('#vc').hidden = false; }
+  toast('つながりました。確認コードが相手と同じか確かめてください', 4500);
+  try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+  sendSync();
+}
+function onLost() {
+  if (!connected && !pc) return;
+  const was = connected; closePeer(); setStatus('bad', '切断');
+  if (was) {
+    toast('接続が切れました。絵はこの画面に残っています', 5000);
+    showConnView('choose'); $('#connMsg').textContent = '接続が切れました。もう一度つなぐと、お互いの絵が自動で合流します。'; openModal('connModal');
+  }
+}
+async function verifyCode() {
+  try {
+    const fp = s => (/a=fingerprint:\S+ (\S+)/.exec(s || '') || [])[1] || '';
+    const txt = [fp(pc.localDescription.sdp), fp(pc.remoteDescription.sdp)].sort().join('|');
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+    return String(new DataView(h).getUint32(0) % 10000).padStart(4, '0');
+  } catch (_) { return null; }
+}
+function waitIce(p) {
+  return new Promise(res => {
+    if (p.iceGatheringState === 'complete') return res();
+    let n = 0, t1, t2;
+    const done = () => { clearTimeout(t1); clearTimeout(t2); p.removeEventListener('icegatheringstatechange', chk); p.removeEventListener('icecandidate', cnt); res(); };
+    const chk = () => { if (p.iceGatheringState === 'complete') done(); };
+    const cnt = ev => { if (ev.candidate) n++; };
+    p.addEventListener('icegatheringstatechange', chk); p.addEventListener('icecandidate', cnt);
+    t1 = setTimeout(() => { if (n > 0) done(); }, 3500); t2 = setTimeout(done, 8000);
+  });
+}
+/* コードの符号化 */
+async function deflate(str) {
+  const cs = new CompressionStream('deflate-raw'), w = cs.writable.getWriter();
+  w.write(new TextEncoder().encode(str)); w.close();
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+async function inflate(u8) {
+  const ds = new DecompressionStream('deflate-raw'), w = ds.writable.getWriter();
+  w.write(u8); w.close();
+  return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer());
+}
+function b64u(u8) {
+  let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function unb64u(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '=';
+  const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u;
+}
+async function encodeCode(obj) {
+  const json = JSON.stringify(obj);
+  if (typeof CompressionStream !== 'undefined') { try { return 'FD1.' + b64u(await deflate(json)); } catch (_) {} }
+  return 'FD0.' + b64u(new TextEncoder().encode(json));
+}
+async function decodeCode(text) {
+  const m = /FD([01])\.([A-Za-z0-9_-]+)/.exec(String(text).replace(/\s+/g, ''));
+  if (!m) throw new Error('コードを読み取れません。招待リンクまたはコードを、最後まで貼り付けてください。');
+  const u = unb64u(m[2]);
+  let json;
+  if (m[1] === '1') { if (typeof DecompressionStream === 'undefined') throw new Error('このブラウザは圧縮コードを読めません。新しいブラウザで開いてください。'); json = await inflate(u); }
+  else json = new TextDecoder().decode(u);
+  const o = JSON.parse(json);
+  if (!o || typeof o.sdp !== 'string' || (o.t !== 'offer' && o.t !== 'answer')) throw new Error('コードの内容が正しくありません。');
+  return o;
+}
+async function hostCreate() {
+  const me = newPeer(0);
+  dcMain = me.createDataChannel('draw'); wireMain(dcMain);
+  dcPtr = me.createDataChannel('ptr', { ordered: false, maxRetransmits: 0 }); wirePtr(dcPtr);
+  audioTx = me.addTransceiver('audio', { direction: 'sendrecv' });
+  await me.setLocalDescription(await me.createOffer());
+  await waitIce(me);
+  return encodeCode({ t: 'offer', sdp: me.localDescription.sdp });
+}
+async function guestAnswer(text) {
+  const o = await decodeCode(text);
+  if (o.t !== 'offer') throw new Error('これは返答コードです。招待リンク（または招待コード）を貼り付けてください。');
+  const me = newPeer(1);
+  await me.setRemoteDescription({ type: 'offer', sdp: o.sdp });
+  const tx = me.getTransceivers().find(t => t.receiver && t.receiver.track && t.receiver.track.kind === 'audio');
+  if (tx) { tx.direction = 'sendrecv'; audioTx = tx; }
+  await me.setLocalDescription(await me.createAnswer());
+  await waitIce(me);
+  return encodeCode({ t: 'answer', sdp: me.localDescription.sdp });
+}
+async function hostFinish(text) {
+  if (!pc || pcRole !== 0) throw new Error('先に「部屋を作る」から招待リンクを作ってください。');
+  const o = await decodeCode(text);
+  if (o.t !== 'answer') throw new Error('これは招待コードです。相手から届いた「返答コード」を貼り付けてください。');
+  await pc.setRemoteDescription({ type: 'answer', sdp: o.sdp });
+  setStatus('wait', '接続中…');
+}
+/* 送受信 */
+function sendPtr(obj) { if (dcPtr && dcPtr.readyState === 'open') { try { dcPtr.send(JSON.stringify(obj)); } catch (_) {} } }
+function sendMain(obj) {
+  if (!connected || !dcMain) return;
+  const dc = dcMain;
+  sendQ = sendQ.then(async () => {
+    if (dc.readyState !== 'open') return;
+    const s = JSON.stringify(obj);
+    if (s.length <= CH) { dc.send(s); return; }
+    const ps = []; let i = 0;
+    while (i < s.length) { let j = Math.min(s.length, i + CH); if (j < s.length) { const c = s.charCodeAt(j - 1); if (c >= 0xD800 && c <= 0xDBFF) j--; } ps.push(s.slice(i, j)); i = j; }
+    const id = rnd();
+    for (let k = 0; k < ps.length; k++) {
+      while (dc.bufferedAmount > 1048576 && dc.readyState === 'open') await new Promise(r => { dc.onbufferedamountlow = r; setTimeout(r, 250); });
+      if (dc.readyState !== 'open') return;
+      dc.send(JSON.stringify({ t: 'c', id, i: k, n: ps.length, d: ps[k] }));
+    }
+  }).catch(() => {});
+}
+function onMain(data) {
+  let m; try { m = JSON.parse(data); } catch (_) { return; }
+  if (!m || typeof m !== 'object') return;
+  if (m.t === 'c') {
+    if (typeof m.id !== 'string' || !(m.n > 0 && m.n < 2000) || !(m.i >= 0 && m.i < m.n) || typeof m.d !== 'string') return;
+    let e = parts.get(m.id); if (!e) { e = { a: new Array(m.n), c: 0, len: 0 }; parts.set(m.id, e); }
+    if (e.a[m.i] === undefined) { e.a[m.i] = m.d; e.c++; e.len += m.d.length; }
+    if (e.len > 30e6) { parts.delete(m.id); return; }
+    if (e.c === m.n) { parts.delete(m.id); try { handle(JSON.parse(e.a.join(''))); } catch (_) {} }
+    return;
+  }
+  handle(m);
+}
+function onPtr(m) {
+  if (!m || m.t !== 'ptr') return;
+  if (m.x === null || m.x === undefined) { if (remote.ptr) remote.ptr.vis = false; drawPtr(); return; }
+  remote.ptr = { x: num(m.x, -1e5, 1e5, 0), y: num(m.y, -1e5, 1e5, 0), d: m.d ? 1 : 0, w: num(m.w, 1, 200, 4), t: performance.now(), vis: true };
+  schedPtr();
+}
+function handle(m) {
+  switch (m.t) {
+    case 's': {
+      const st = cleanStroke(m.s); if (!st || S.byId.has(st.id) || S.removed.has(st.id)) break;
+      st.done = false; S.lam = Math.max(S.lam, st.q); addStroke(st); break;
+    }
+    case 'S': {
+      const st = cleanStroke(m.s); if (!st || S.byId.has(st.id) || S.removed.has(st.id)) break;
+      st.done = true; S.lam = Math.max(S.lam, st.q); addStroke(st); if (st._dirty) redrawAll(); scheduleAutosave(); break;
+    }
+    case 'p': {
+      const st = S.byId.get(m.id); if (!st || st.done || st._local) break;
+      const add = cleanPts(m.p, stride(st)); for (const v of add) st.p.push(v);
+      if (!st._dirty) drawStroke(ix, st, false); break;
+    }
+    case 'e': {
+      const st = S.byId.get(m.id); if (!st || st._local) break;
+      st.done = true; if (st._dirty) redrawAll(); else drawStroke(ix, st, true); scheduleAutosave(); break;
+    }
+    case 'u': {
+      if (typeof m.id !== 'string') break;
+      dropStroke(m.id); redrawAll(); updateUndoUI(); scheduleAutosave(); break;
+    }
+    case 'clear': {
+      for (const st of S.strokes) S.removed.add(st.id);
+      S.strokes = []; S.byId.clear(); S.undo = []; S.redo = []; redrawAll(); updateUndoUI(); scheduleAutosave(); break;
+    }
+    case 'bg': { const b = cleanBg(m.b); if (b) setBackground(b, false); break; }
+    case 'nobg': { S.bg = null; S.bgImg = null; S.bgToken++; redrawBg(); scheduleAutosave(); break; }
+    case 'paper': {
+      if (S.bg || S.strokes.length) break;
+      setPaper(num(m.w, 200, MAXPAPER, 1600), num(m.h, 200, MAXPAPER, 1200)); fitView(); break;
+    }
+    case 'sync': applySync(m); break;
+    case 'load': applyLoaded(m, false); break;
+  }
+}
+function cleanBg(b) {
+  if (!b || typeof b.data !== 'string' || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(b.data) || b.data.length > 9e6) return null;
+  return { data: b.data, pw: num(b.pw, 200, MAXPAPER, 1600), ph: num(b.ph, 200, MAXPAPER, 1200) };
+}
+function buildSync() {
+  const strokes = S.strokes.map(st => { if (st._local && !st.done) st._sent = nPts(st); return exportStroke(st); });
+  return { t: 'sync', lam: S.lam, paper: S.paper, bg: S.bg, removed: [...S.removed].slice(-4000), strokes };
+}
+function sendSync() { sendMain(buildSync()); }
+async function applySync(m) {
+  S.lam = Math.max(S.lam, num(m.lam, 0, 1e9, 0));
+  for (const id of (Array.isArray(m.removed) ? m.removed : [])) if (typeof id === 'string') S.removed.add(id.slice(0, 40));
+  for (let i = S.strokes.length - 1; i >= 0; i--) if (S.removed.has(S.strokes[i].id)) { S.byId.delete(S.strokes[i].id); S.strokes.splice(i, 1); }
+  for (const r of (Array.isArray(m.strokes) ? m.strokes : [])) {
+    const st = cleanStroke(r); if (!st || S.byId.has(st.id) || S.removed.has(st.id)) continue;
+    S.lam = Math.max(S.lam, st.q); resetR(st); insertStroke(st);
+  }
+  const rb = cleanBg(m.bg);
+  const adopt = rb && (S.role === 1 ? !S.bg || S.bg.data !== rb.data : !S.bg);
+  if (adopt) await setBackground(rb, false, true);
+  else if (!S.bg && !rb && S.role === 1 && m.paper && (m.paper.w !== S.paper.w || m.paper.h !== S.paper.h) && !S.strokes.some(s => s._local)) {
+    setPaper(num(m.paper.w, 200, MAXPAPER, 1600), num(m.paper.h, 200, MAXPAPER, 1200), false);
+  }
+  redrawBg(); redrawAll(); fitIfPristine(); updateUndoUI(); scheduleAutosave();
+}
+function fitIfPristine() { if (!userMoved) fitView(); }
+
+/* ============ 背景画像 ============ */
+async function decodeImg(src) { const im = new Image(); im.src = src; await im.decode(); return im; }
+async function setBackground(b, broadcast, quiet) {
+  const tok = ++S.bgToken;
+  S.bg = b; setPaper(b.pw, b.ph, false);
+  let im = null; try { im = await decodeImg(b.data); } catch (_) {}
+  if (tok !== S.bgToken) return;
+  S.bgImg = im; redrawBg(); redrawAll();
+  if (!quiet) { fitView(); }
+  if (broadcast) sendMain({ t: 'bg', b });
+  scheduleAutosave();
+}
+async function processImage(file) {
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch (_) { bmp = await decodeImg(URL.createObjectURL(file)); }
+  const iw = bmp.width || bmp.naturalWidth, ih = bmp.height || bmp.naturalHeight;
+  let scale = Math.min(1, 2400 / Math.max(iw, ih)), q = 0.88, data = '';
+  for (let i = 0; i < 6; i++) {
+    const w = Math.max(1, Math.round(iw * scale)), h = Math.max(1, Math.round(ih * scale));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.drawImage(bmp, 0, 0, w, h);
+    data = file.type === 'image/png' && i === 0 ? cv.toDataURL('image/png') : '';
+    if (!data || data.length > 2.2e6) data = cv.toDataURL('image/jpeg', q);
+    if (data.length <= 3.2e6) break;
+    q = Math.max(0.5, q - 0.1); scale *= 0.85;
+  }
+  const r = iw / ih;
+  let pw = S.paper.w, ph = S.paper.h;
+  if (!S.strokes.length) { pw = r >= 1 ? LONG : Math.round(LONG * r); ph = r >= 1 ? Math.round(LONG / r) : LONG; }
+  return { data, pw, ph };
+}
+
+/* ============ 保存・読み込み・書き出し ============ */
+function stamp() { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}`; }
+function saveBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+}
+function projectJSON() {
+  return JSON.stringify({ app: 'futari-okaki', v: 1, paper: S.paper, bg: S.bg, strokes: S.strokes.filter(s => s.done).map(exportStroke) });
+}
+$('#miSave').addEventListener('click', () => {
+  saveBlob(new Blob([projectJSON()], { type: 'application/json' }), `okaki-${stamp()}.json`); closeModal('menuModal'); toast('保存しました（この端末のダウンロード先）');
+});
+function parseProject(text) {
+  const o = JSON.parse(text);
+  if (!o || o.app !== 'futari-okaki' || !Array.isArray(o.strokes)) throw new Error('このアプリのプロジェクトファイルではありません');
+  const strokes = o.strokes.map(cleanStroke).filter(Boolean);
+  strokes.sort((a, b) => a.q - b.q || a.o - b.o || (a.id < b.id ? -1 : 1));
+  return { paper: { w: num(o.paper && o.paper.w, 200, MAXPAPER, 1600), h: num(o.paper && o.paper.h, 200, MAXPAPER, 1200) }, bg: cleanBg(o.bg), strokes };
+}
+async function applyLoaded(p, broadcast) {
+  for (const st of S.strokes) S.removed.add(st.id);
+  S.strokes = []; S.byId.clear(); S.undo = []; S.redo = [];
+  const out = [];
+  for (const r of p.strokes) {
+    const st = cleanStroke(r); if (!st) continue;
+    st.id = newId(); st.q = ++S.lam; st.done = true; st._local = broadcast; resetR(st); insertStroke(st); out.push(exportStroke(st));
+  }
+  setPaper(p.paper.w, p.paper.h, false);
+  const bg = cleanBg(p.bg);
+  if (bg) { await setBackground(bg, false, true); } else { S.bg = null; S.bgImg = null; S.bgToken++; }
+  redrawBg(); redrawAll(); fitView(); updateUndoUI(); scheduleAutosave();
+  if (broadcast) sendMain({ t: 'load', paper: S.paper, bg: S.bg, strokes: out });
+}
+async function handleFile(f) {
+  try {
+    if (/\.json$/i.test(f.name) || f.type === 'application/json') {
+      const p = parseProject(await f.text());
+      if ((S.strokes.length || S.bg) && !confirm('現在の絵は置き換えられます。' + (connected ? '相手の画面も置き換わります。' : '') + 'よろしいですか？')) return;
+      await applyLoaded(p, true); toast('プロジェクトを読み込みました');
+    } else if (/^image\//.test(f.type)) {
+      const b = await processImage(f); await setBackground(b, true); toast(connected ? '背景に設定しました（相手にも表示されます）' : '背景に設定しました');
+    } else toast('対応していないファイルです（画像または .json）');
+  } catch (e) { toast('読み込めませんでした: ' + (e.message || e), 4500); }
+}
+$('#fileImg').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) handleFile(f); });
+$('#fileJson').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) handleFile(f); });
+function composite(kind) {
+  const cv = document.createElement('canvas'); cv.width = S.paper.w * SS; cv.height = S.paper.h * SS;
+  const c = cv.getContext('2d');
+  if (kind !== 'line') { c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height); c.drawImage(bgc, 0, 0); }
+  c.drawImage(inkc, 0, 0); return cv;
+}
+function toBlob(cv, type, q) { return new Promise(res => cv.toBlob(res, type, q)); }
+async function exportImage(share) {
+  const kind = $('input[name=fmt]:checked').value;
+  const cv = composite(kind), jpeg = kind === 'jpeg';
+  const blob = await toBlob(cv, jpeg ? 'image/jpeg' : 'image/png', 0.92);
+  if (!blob) { toast('書き出しに失敗しました'); return; }
+  const name = `okaki-${stamp()}${kind === 'line' ? '-line' : ''}.${jpeg ? 'jpg' : 'png'}`;
+  if (share) {
+    try { const f = new File([blob], name, { type: blob.type }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  saveBlob(blob, name); toast('保存しました（この端末のダウンロード先）');
+}
+$('#exDownload').addEventListener('click', () => exportImage(false));
+$('#exShare').addEventListener('click', () => exportImage(true));
+
+/* ============ 自動バックアップ（この端末内のみ） ============ */
+const idb = {
+  open() { return new Promise((res, rej) => { const r = indexedDB.open('futari-okaki', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async get(k) { const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  async set(k, v) { const db = await this.open(); return new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); },
+  async del(k) { const db = await this.open(); return new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k); t.oncomplete = res; t.onerror = () => rej(t.error); }); },
+};
+let asTimer = 0, restoreBlocked = false;
+function scheduleAutosave() {
+  if (restoreBlocked) return;
+  clearTimeout(asTimer);
+  asTimer = setTimeout(async () => {
+    try {
+      const strokes = S.strokes.filter(s => s.done);
+      if (!strokes.length && !S.bg) await idb.del('autosave');
+      else await idb.set('autosave', { v: 1, t: Date.now(), paper: S.paper, bg: S.bg, strokes: strokes.map(exportStroke) });
+    } catch (_) {}
+  }, 2500);
+}
+async function checkRestore() {
+  try {
+    const rec = await idb.get('autosave'); if (!rec || (!rec.strokes.length && !rec.bg)) return;
+    restoreBlocked = true;
+    const d = new Date(rec.t), z = n => String(n).padStart(2, '0');
+    $('#restoreText').textContent = `前回の絵が残っています（${d.getMonth() + 1}/${d.getDate()} ${z(d.getHours())}:${z(d.getMinutes())}）。`;
+    $('#restoreBar').hidden = false;
+    $('#restoreYes').onclick = async () => { $('#restoreBar').hidden = true; restoreBlocked = false; await applyLoaded({ paper: rec.paper, bg: rec.bg, strokes: rec.strokes }, connected); toast('復元しました'); };
+    $('#restoreNo').onclick = async () => { $('#restoreBar').hidden = true; restoreBlocked = false; try { await idb.del('autosave'); } catch (_) {} };
+  } catch (_) {}
+}
+
+/* ============ マイク ============ */
+function setMicUI(on) {
+  $('#mic').classList.toggle('live', on); $('#micUse').setAttribute('href', on ? '#i-mic' : '#i-micoff'); $('#micText').textContent = on ? 'ON' : 'マイク';
+}
+function stopMic() { if (micTrack) { try { micTrack.stop(); } catch (_) {} micTrack = null; } setMicUI(false); }
+$('#mic').addEventListener('click', async () => {
+  if (!audioTx) { toast('先に接続してください'); return; }
+  if (micTrack) { stopMic(); try { await audioTx.sender.replaceTrack(null); } catch (_) {} return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+    micTrack = stream.getAudioTracks()[0];
+    micTrack.onended = () => { micTrack = null; setMicUI(false); };
+    await audioTx.sender.replaceTrack(micTrack); setMicUI(true);
+    toast('マイクON。イヤホンの使用をおすすめします（ハウリング防止）', 3500);
+  } catch (e) { toast('マイクを使えませんでした：' + (e.name === 'NotAllowedError' ? '許可されていません' : (e.message || e.name)), 4500); }
+});
+document.addEventListener('pointerdown', () => { const a = $('#remoteAudio'); if (a.srcObject && a.paused) a.play().catch(() => {}); }, true);
+
+/* ============ ダイアログ ============ */
+function openModal(id) { $('#' + id).classList.remove('hidden'); }
+function closeModal(id) { $('#' + id).classList.add('hidden'); }
+$$('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
+$$('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target === m) m.classList.add('hidden'); }));
+function showConnView(v) {
+  for (const id of ['vChoose', 'vHost', 'vGuest', 'vDone']) $('#' + id).hidden = id !== 'v' + v[0].toUpperCase() + v.slice(1);
+  $('#resetRow').hidden = v === 'choose' || v === 'done';
+  if (v === 'choose') { $('#connMsg').textContent = $('#connMsg').textContent; }
+  $('#connErr').textContent = '';
+}
+function inviteBase() { return location.href.split('#')[0].split('?')[0]; }
+async function copyText(text, ta) {
+  try { await navigator.clipboard.writeText(text); toast('コピーしました'); }
+  catch (_) { ta.removeAttribute('readonly'); ta.select(); try { document.execCommand('copy'); toast('コピーしました'); } catch (e) { toast('選択しました。手動でコピーしてください'); } }
+}
+async function shareText(text, url) {
+  if (navigator.share) { try { await navigator.share(url ? { title: 'ふたりのお絵かき', text: 'お絵かきの招待です', url } : { title: 'ふたりのお絵かき', text }); } catch (_) {} }
+  else toast('この端末は共有に対応していません。コピーして送ってください');
+}
+if (!navigator.share) { $('#shareInvite').hidden = true; $('#shareAnswer').hidden = true; }
+$('#connBtn').addEventListener('click', () => { $('#connMsg').textContent = ''; showConnView(connected ? 'done' : (pc ? (pcRole === 0 ? 'host' : 'guest') : 'choose')); openModal('connModal'); });
+$('#miConn').addEventListener('click', () => { closeModal('menuModal'); $('#connBtn').click(); });
+$('#btnHost').addEventListener('click', async () => {
+  showConnView('host'); $('#inviteOut').value = '招待リンクを作っています…（数秒かかります）'; $('#answerIn').value = '';
+  try {
+    if (!window.RTCPeerConnection) throw new Error('このブラウザは直接接続（WebRTC）に対応していません。');
+    const code = await hostCreate(); $('#inviteOut').value = inviteBase() + '#o=' + code; setStatus('wait', '返答待ち');
+  } catch (e) { $('#connErr').textContent = e.message || String(e); $('#inviteOut').value = ''; }
+});
+$('#copyInvite').addEventListener('click', () => copyText($('#inviteOut').value, $('#inviteOut')));
+$('#shareInvite').addEventListener('click', () => shareText('', $('#inviteOut').value));
+$('#btnFinish').addEventListener('click', async () => {
+  $('#connErr').textContent = '';
+  try { await hostFinish($('#answerIn').value); $('#connMsg').textContent = '接続しています…（数秒かかります。つながらない場合は、回線の組み合わせが原因のことがあります）'; }
+  catch (e) { $('#connErr').textContent = e.message || String(e); }
+});
+$('#btnGuest').addEventListener('click', () => { showConnView('guest'); $('#inviteIn').value = ''; $('#answerBox').hidden = true; });
+async function makeAnswer() {
+  $('#connErr').textContent = ''; $('#btnMakeAnswer').disabled = true;
+  try {
+    if (!window.RTCPeerConnection) throw new Error('このブラウザは直接接続（WebRTC）に対応していません。');
+    $('#connMsg').textContent = '返答コードを作っています…';
+    const code = await guestAnswer($('#inviteIn').value);
+    $('#answerOut').value = code; $('#answerBox').hidden = false; $('#connMsg').textContent = ''; setStatus('wait', '相手の操作待ち');
+  } catch (e) { $('#connErr').textContent = e.message || String(e); $('#connMsg').textContent = ''; }
+  $('#btnMakeAnswer').disabled = false;
+}
+$('#btnMakeAnswer').addEventListener('click', makeAnswer);
+$('#copyAnswer').addEventListener('click', () => copyText($('#answerOut').value, $('#answerOut')));
+$('#shareAnswer').addEventListener('click', () => shareText($('#answerOut').value, ''));
+$('#btnReset').addEventListener('click', () => { closePeer(); setStatus('idle', '未接続'); $('#connMsg').textContent = ''; showConnView('choose'); });
+$('#btnDisconnect').addEventListener('click', () => { closePeer(); setStatus('idle', '未接続'); showConnView('choose'); toast('切断しました'); });
+$$('#inviteOut,#answerOut').forEach(t => t.addEventListener('focus', () => t.select()));
+
+/* ============ メニュー ============ */
+$('#menuBtn').addEventListener('click', () => { updateMenu(); openModal('menuModal'); });
+function updateMenu() {
+  const empty = !S.strokes.length && !S.bg;
+  $('#miNoBg').disabled = !S.bg; $('#miClear').disabled = !S.strokes.length; $('#miOrient').disabled = !empty;
+  $('#exShare').hidden = !navigator.canShare;
+}
+function updateTouchLabel() {
+  $('#miTouch').innerHTML = '指の動作：' + (S.touchMode === 'draw' ? '指で描く' : '指は移動専用') + '<small>タップで切り替え。ペンを使うと自動で「指は移動専用」になります</small>';
+}
+$('#miImage').addEventListener('click', () => { closeModal('menuModal'); $('#fileImg').click(); });
+$('#miLoad').addEventListener('click', () => { closeModal('menuModal'); $('#fileJson').click(); });
+$('#miNoBg').addEventListener('click', () => {
+  closeModal('menuModal'); S.bg = null; S.bgImg = null; S.bgToken++; redrawBg(); sendMain({ t: 'nobg' }); scheduleAutosave(); toast('背景画像を外しました');
+});
+$('#miExport').addEventListener('click', () => { closeModal('menuModal'); updateMenu(); openModal('exportModal'); });
+$('#miClear').addEventListener('click', () => {
+  closeModal('menuModal');
+  if (!confirm('線をすべて消します。' + (connected ? '相手の画面でも消えます。' : '') + 'よろしいですか？')) return;
+  for (const st of S.strokes) S.removed.add(st.id);
+  S.strokes = []; S.byId.clear(); S.undo = []; S.redo = []; redrawAll(); updateUndoUI(); sendMain({ t: 'clear' }); scheduleAutosave();
+});
+$('#miOrient').addEventListener('click', () => {
+  closeModal('menuModal'); const { w, h } = S.paper; setPaper(h, w); fitView(); sendMain({ t: 'paper', w: h, h: w });
+});
+$('#miTouch').addEventListener('click', () => { S.touchMode = S.touchMode === 'draw' ? 'pan' : 'draw'; S.penSeen = true; updateTouchLabel(); toast(S.touchMode === 'draw' ? '指で描きます' : '指は移動専用にしました'); });
+
+/* ============ 起動 ============ */
+buildSwatches(); setPaper(1600, 1200, false); setColor('#1a1a1a', false); setTool('pen'); updateUndoUI(); updateTouchLabel(); resizeStage();
+setStatus('idle', '未接続');
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+(function boot() {
+  const m = /^#o=(FD[01]\.[A-Za-z0-9_-]+)/.exec(location.hash);
+  if (m) {
+    history.replaceState(null, '', location.href.split('#')[0]);
+    showConnView('guest'); $('#inviteIn').value = m[1]; openModal('connModal'); makeAnswer();
+  } else checkRestore();
+})();
+window.__fd = { S }; // デバッグ用（読み取り専用の参照）
+})();
+</script>
+</body>
+</html>

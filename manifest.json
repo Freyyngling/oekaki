@@ -1,0 +1,16 @@
+{
+  "name": "ふたりのお絵かき",
+  "short_name": "お絵かき",
+  "description": "離れた2人が一枚の紙に同時に描ける共有お絵かき（直接接続・サーバー不要）",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1f2937",
+  "theme_color": "#1f2937",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
